@@ -2,18 +2,70 @@
 ## 📚 Proyecto de Computación Paralela: QuickSort
 Este proyecto implementa una versión paralela del algoritmo de ordenamiento QuickSort en C, utilizando MPI para distribuir el trabajo en varios procesos. Se centra en la eficiencia de ordenamiento de grandes conjuntos de datos en un entorno de múltiples procesos, midiendo el rendimiento en términos de tiempo de ejecución.
 
-### 🧩 Algoritmo QuickSort Paralelo
+## 🧩 Algoritmo QuickSort Paralelo
 #### Estrategia y Distribución de Trabajo
 1. El conjunto de datos se divide en fragmentos que son distribuidos entre los procesos disponibles.
 2. Cada proceso aplica el algoritmo QuickSort secuencial a su fragmento. 
 3. Finalmente, el proceso raíz fusiona los fragmentos ordenados para obtener el conjunto de datos completo en orden ascendente.
 
-### 🔍 Características Técnicas
+## 🔍 Características Técnicas
 - **Paralelización con MPI**: Dividir y fusionar fragmentos de manera eficiente.
 - **Complejidad Temporal (Promedio)**: O(n log n) para el proceso completo.
 - **Distribución Dinámica de Fragmentos**: Para balancear la carga entre procesos.
 
-### 💻 Funciones Clave de MPI
+## 💻 Distribución y Recolección de Datos con MPI
+#### Distribuir Tamaños de Fragmento: `MPI_Scatter`
+```c
+int localFragmentSize;
+MPI_Scatter(fragmentSizes, 1, MPI_INT, &localFragmentSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
+```
+**Propósito**: Distribuir el tamaño de cada fragmento de datos a los procesos.
+**Funcionamiento**: Envía a cada proceso el tamaño del fragmento que procesará, para reservar la memoria necesaria en cada proceso.
+
+#### Enviar Fragmentos de Datos: `MPI_Scatterv`
+```c
+localFragment = (int *)malloc(localFragmentSize * sizeof(int));
+MPI_Scatterv(fullArray, fragmentSizes, displacements, MPI_INT, localFragment, localFragmentSize, MPI_INT, 0, MPI_COMM_WORLD);
+```
+**Propósito**: Enviar el fragmento de datos correspondiente a cada proceso.
+**Funcionamiento**: Distribuye fragmentos específicos de `fullArray` a cada proceso basado en `fragmentSizes` y `displacements`.
+
+#### Recolectar Fragmentos Ordenados: `MPI_Gatherv`
+```c
+MPI_Gatherv(localFragment, localFragmentSize, MPI_INT, fullArray, fragmentSizes, displacements, MPI_INT, 0, MPI_COMM_WORLD);
+```
+**Propósito**: Recoger los fragmentos ordenados de cada proceso en el proceso raíz.
+**Funcionamiento**: Usa `fragmentSizes` y `displacements` para colocar los fragmentos en sus posiciones correctas en `fullArray`.
+
+## 🛠️ Compilación y Ejecución Paralela
+### Compilación
+Compila el programa con el compilador MPI (`mpicc`):
+```bash
+mpicc -o quickParallel ParallelQuickSort.c
+```
+### Ejecución
+Ejecuta el programa en modo paralelo especificando la cantidad de procesos con `mpiexec`:
+```bash
+mpiexec -n (cantidad procesos) ./quickParallel
+```
+Por ejemplo, para ejecutar el programa con 10 procesos:
+```bash
+mpiexec -n 10 ./quickParallel
+```
+
+## 📊 Rendimiento y Mediciones en Clúster
+Se realizaron pruebas en un clúster con 10 nodos para evaluar el rendimiento de la versión paralela en comparación con la versión secuencial.
+
+| Cantidad de Datos | Tipo | Nodos | Tiempo de Ejecución (s) |
+| ----------------- | ---- | ------ | ----------------------- |
+| 100 millones de números | Paralelo | 10 | 68.239076138 |
+| 100 millones de números | Secuencial (sin MPI) | 1 | 253.353401354 |
+
+**Conclusiones**:
+- La versión paralela en clúster reduce significativamente el tiempo de ejecución en comparación con la versión secuencial, logrando una mejora de casi 4 veces en este caso.
+- El uso de 10 nodos permite balancear la carga de trabajo y aprovechar la capacidad de procesamiento distribuido.
+
+## 💻 Funciones para Generación, Distribución y Fusión del Arreglo
 #### `fullArray = (int *)malloc(MAX_NUMBERS * sizeof(int))`
 **Propósito**: Crear un arreglo grande que contendrá todos los elementos a ordenar.
 **Funcionamiento**:
@@ -39,30 +91,6 @@ for (int i = 0; i < numProcesses; i++) {
 - Balanceo de carga: Los elementos restantes se asignan a los primeros procesos para garantizar un reparto equitativo.
 - `fragmentSizes` almacena el tamaño de fragmento para cada proceso.
 - `displacements` guarda el índice de inicio de cada fragmento en `fullArray`.
-
-### Distribución y Recolección de Datos con MPI
-#### Distribuir Tamaños de Fragmento: `MPI_Scatter`
-```c
-int localFragmentSize;
-MPI_Scatter(fragmentSizes, 1, MPI_INT, &localFragmentSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
-```
-**Propósito**: Distribuir el tamaño de cada fragmento de datos a los procesos.
-**Funcionamiento**: Envía a cada proceso el tamaño del fragmento que procesará, para reservar la memoria necesaria en cada proceso.
-
-#### Enviar Fragmentos de Datos: `MPI_Scatterv`
-```c
-localFragment = (int *)malloc(localFragmentSize * sizeof(int));
-MPI_Scatterv(fullArray, fragmentSizes, displacements, MPI_INT, localFragment, localFragmentSize, MPI_INT, 0, MPI_COMM_WORLD);
-```
-**Propósito**: Enviar el fragmento de datos correspondiente a cada proceso.
-**Funcionamiento**: Distribuye fragmentos específicos de `fullArray` a cada proceso basado en `fragmentSizes` y `displacements`.
-
-#### Recolectar Fragmentos Ordenados: `MPI_Gatherv`
-```c
-MPI_Gatherv(localFragment, localFragmentSize, MPI_INT, fullArray, fragmentSizes, displacements, MPI_INT, 0, MPI_COMM_WORLD);
-```
-**Propósito**: Recoger los fragmentos ordenados de cada proceso en el proceso raíz.
-**Funcionamiento**: Usa `fragmentSizes` y `displacements` para colocar los fragmentos en sus posiciones correctas en `fullArray`.
 
 #### Fusionar Fragmentos Ordenados: `mergeSortedFragments(int *array, int totalSize, int *fragmentSizes, int worldSize)`
 ```c
@@ -101,34 +129,6 @@ free(tempArray);
 - Usa un arreglo temporal `tempArray` para mantener el resultado de la fusión.
 - Mantiene índices en `currentIndices` que avanzan por cada fragmento, seleccionando el valor mínimo entre los fragmentos actuales y colocándolo en `tempArray`.
 - Finalmente, `tempArray` se copia a `array`, que contiene los datos fusionados y ordenados.
-
-## 🛠️ Compilación y Ejecución Paralela
-### Compilación
-Compila el programa con el compilador MPI (`mpicc`):
-```bash
-mpicc -o quickParallel ParallelQuickSort.c
-```
-### Ejecución
-Ejecuta el programa en modo paralelo especificando la cantidad de procesos con `mpiexec`:
-```bash
-mpiexec -n (cantidad procesos) ./quickParallel
-```
-Por ejemplo, para ejecutar el programa con 10 procesos:
-```bash
-mpiexec -n 10 ./quickParallel
-```
-
-## 📊 Rendimiento y Mediciones en Clúster
-Se realizaron pruebas en un clúster con 10 nodos para evaluar el rendimiento de la versión paralela en comparación con la versión secuencial.
-
-| Cantidad de Datos | Tipo | Nodos | Tiempo de Ejecución (s) |
-| ----------------- | ---- | ------ | ----------------------- |
-| 100 millones de números | Paralelo | 10 | 68.239076138 |
-| 100 millones de números | Secuencial (sin MPI) | 1 | 253.353401354 |
-
-**Conclusiones**:
-- La versión paralela en clúster reduce significativamente el tiempo de ejecución en comparación con la versión secuencial, logrando una mejora de casi 4 veces en este caso.
-- El uso de 10 nodos permite balancear la carga de trabajo y aprovechar la capacidad de procesamiento distribuido.
 
 ## 📊 Medición de Rendimiento en Tiempo Real
 El programa mide el tiempo de ejecución total desde la distribución hasta la fusión, 
