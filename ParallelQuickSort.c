@@ -11,20 +11,22 @@ void swap(int *a, int *b) {
     *b = temp;
 }
 
-// Partición del arreglo para Quick Sort usando el último elemento como pivote
+// Función de partición utilizando un pivote con doble índice
 int partition(int array[], int low, int high) {
-    int pivot = array[high];
-    int i = low - 1; // Índice del menor elemento
+    int pivot = array[high];       // Elige el último elemento como pivote
+    int leftIndex = low - 1;       // Índice de la izquierda para encontrar elementos mayores que el pivote
+    int rightIndex = high;         // Índice de la derecha para encontrar elementos menores que el pivote
 
-    // Recorre el subarreglo y coloca elementos menores que el pivote a su izquierda
-    for (int j = low; j < high; j++) {
-        if (array[j] <= pivot) {
-            i++;
-            swap(&array[i], &array[j]);
+    while (1) {
+        do { leftIndex++; } while (array[leftIndex] < pivot);
+        do { rightIndex--; } while (rightIndex >= low && array[rightIndex] > pivot);
+
+        if (leftIndex >= rightIndex) {
+            swap(&array[leftIndex], &array[high]);
+            return leftIndex;
         }
+        swap(&array[leftIndex], &array[rightIndex]);
     }
-    swap(&array[i + 1], &array[high]); // Coloca el pivote en su posición final
-    return i + 1; // Retorna el índice del pivote
 }
 
 // Quick Sort recursivo
